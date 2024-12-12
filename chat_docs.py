@@ -7,8 +7,7 @@ from langchain.vectorstores import FAISS
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
-from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
+from langchain.schema import HumanMessage, AIMessage
 import docx2txt
 import streamlit_lottie as st_lottie
 import json
@@ -51,40 +50,17 @@ def get_vectorstore(text_chunks):
     return vectorstore
 
 def get_conversation_chain(vectorstore):
-    ''' Create a conversation chain with a custom prompt '''
-    try:
-        # Define your custom prompt template
-        prompt_template = """
-        Imagine you are a contextual Chatbot: Acting as a conversational agent chat with the user based on the context of the document. 
-        It can assist in navigating the document or even offer insights based on the document's content. 
-        Please engage in a conversation with the uploaded PDF and provide detailed analysis and discussion points.
-        """
-
-        # Set up the PromptTemplate
-        prompt = PromptTemplate(input_variables=["question"], template=prompt_template)
-
-        # Set up the LLM (Google Generative AI)
-        llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
-            temperature=0.3,
-            max_retries=2,
-        )
-
-        # Create an LLMChain with the custom prompt
-        llm_chain = LLMChain(prompt=prompt, llm=llm)
-
-        # Set up conversation memory
-        memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-
-        # Create the ConversationalRetrievalChain with the LLMChain
-        conversation_chain = ConversationalRetrievalChain.from_llm(
-            llm_chain, retriever=vectorstore.as_retriever(), memory=memory
-        )
-
-        return conversation_chain
-    except Exception as e:
-        print(f"Error creating conversation chain: {e}")
-        raise
+    ''' Create a conversation chain '''
+    llm = ChatGoogleGenerativeAI(
+    model="gemini-1.5-flash",
+    temperature=0.3,
+    max_retries=2,
+)
+    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+    conversation_chain = ConversationalRetrievalChain.from_llm(
+        llm=llm, retriever=vectorstore.as_retriever(), memory=memory
+    )
+    return conversation_chain
 
 def handle_userinput(user_question):
     ''' Handle user input and show chat messages using templates '''
