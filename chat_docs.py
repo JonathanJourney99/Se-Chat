@@ -40,28 +40,36 @@ def get_text_chunks(text):
         separator="\n", chunk_size=1000, chunk_overlap=200, length_function=len
     )
     chunks = text_splitter.split_text(text)
-    print('Chunks: ',chunks)
+    print('Chunks: ', chunks)  # Debugging statement
     return chunks
 
 def get_vectorstore(text_chunks):
     ''' Convert text chunks into a vector store '''
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-    vectorstore = FAISS.from_texts(texts=text_chunks, embedding=embeddings)
-    return vectorstore
+    try:
+        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+        vectorstore = FAISS.from_texts(texts=text_chunks, embedding=embeddings)
+        return vectorstore
+    except Exception as e:
+        print(f"Error creating vectorstore: {e}")
+        raise
 
 def get_conversation_chain(vectorstore):
     ''' Create a conversation chain '''
-    llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-flash",
-    temperature=0.3,
-    max_retries=2,
-)
-    prompt = "Imagine you are a contextual Chatbot: Acting as a conversational agent chat with the user based on the context of the document. It can assist in navigating the document or even offer insights based on the document's content. Please engage in a conversation with the uploaded PDF and provide detailed analysis and discussion points."
-    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-    conversation_chain = ConversationalRetrievalChain.from_llm(
-        llm=llm, retriever=vectorstore.as_retriever(), memory=memory, prompt=prompt
-    )
-    return conversation_chain
+    try:
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",
+            temperature=0.3,
+            max_retries=2,
+        )
+        prompt = "Imagine you are a contextual Chatbot: Acting as a conversational agent chat with the user based on the context of the document. It can assist in navigating the document or even offer insights based on the document's content. Please engage in a conversation with the uploaded PDF and provide detailed analysis and discussion points."
+        memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+        conversation_chain = ConversationalRetrievalChain.from_llm(
+            llm=llm, retriever=vectorstore.as_retriever(), memory=memory, prompt=prompt
+        )
+        return conversation_chain
+    except Exception as e:
+        print(f"Error creating conversation chain: {e}")
+        raise
 
 def handle_userinput(user_question):
     ''' Handle user input and show chat messages using templates '''
@@ -69,13 +77,23 @@ def handle_userinput(user_question):
         st.warning("Please upload and process documents before asking questions.")
         return
     
-    # Call the conversation chain to get a response
-    response = st.session_state.conversation({"question": user_question})
+    # Debugging output
+    print(f"User Question: {user_question}")
     
-    # Display user and bot chat messages using templates
-    st.markdown(user_template.replace("{{MSG}}", user_question), unsafe_allow_html=True)
-    st.markdown(bot_template.replace("{{MSG}}", response['answer']), unsafe_allow_html=True)
-
+    try:
+        # Call the conversation chain to get a response
+        response = st.session_state.conversation({"question": user_question})
+        
+        # Debugging output
+        print(f"Response: {response}")
+        
+        # Display user and bot chat messages using templates
+        st.markdown(user_template.replace("{{MSG}}", user_question), unsafe_allow_html=True)
+        st.markdown(bot_template.replace("{{MSG}}", response['answer']), unsafe_allow_html=True)
+    
+    except Exception as e:
+        print(f"Error in handle_userinput: {e}")
+        st.error(f"An error occurred: {e}")
 
 def load_lottiefile(filepath: str):
     ''' Load a Lottie animation file '''
@@ -111,19 +129,27 @@ def main():
         )
         if st.button("Process"):
             with st.spinner("Processing"):
-                # Get PDF text
-                raw_text = get_docs_text(pdf_docs)
-                text_chunks = get_text_chunks(raw_text)
-                
-                # Create or update vector store
-                if st.session_state.vectorstore is None:
-                    st.session_state.vectorstore = get_vectorstore(text_chunks)
-                else:
-                    new_vectorstore = get_vectorstore(text_chunks)
-                    st.session_state.vectorstore.merge(new_vectorstore)
-                
-                # Create conversation chain
-                st.session_state.conversation = get_conversation_chain(st.session_state.vectorstore)
+                try:
+                    # Get PDF text
+                    raw_text = get_docs_text(pdf_docs)
+                    if not raw_text:
+                        st.warning("No text found in the uploaded documents. Please upload valid files.")
+                        return
+                    
+                    text_chunks = get_text_chunks(raw_text)
+                    
+                    # Create or update vector store
+                    if st.session_state.vectorstore is None:
+                        st.session_state.vectorstore = get_vectorstore(text_chunks)
+                    else:
+                        new_vectorstore = get_vectorstore(text_chunks)
+                        st.session_state.vectorstore.merge(new_vectorstore)
+                    
+                    # Create conversation chain
+                    st.session_state.conversation = get_conversation_chain(st.session_state.vectorstore)
+                except Exception as e:
+                    print(f"Error during document processing: {e}")
+                    st.error(f"An error occurred during document processing: {e}")
 
 if __name__ == "__main__":
     main()
