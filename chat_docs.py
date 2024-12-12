@@ -56,9 +56,10 @@ def get_conversation_chain(vectorstore):
     temperature=0.3,
     max_retries=2,
 )
+    prompt = "Imagine you are a contextual Chatbot: Acting as a conversational agent chat with the user based on the context of the document. It can assist in navigating the document or even offer insights based on the document's content. Please engage in a conversation with the uploaded PDF and provide detailed analysis and discussion points."
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
     conversation_chain = ConversationalRetrievalChain.from_llm(
-        llm=llm, retriever=vectorstore.as_retriever(), memory=memory
+        llm=llm, retriever=vectorstore.as_retriever(), memory=memory, prompt=prompt
     )
     return conversation_chain
 
